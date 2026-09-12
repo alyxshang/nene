@@ -1,0 +1,14 @@
+.{
+    .name = .nene,
+    .version = "0.1.0",
+    .fingerprint = 0x72078519b7b0a181,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{},
+    .paths = .{
+        "src",
+        "LICENSE",
+        "build.zig",
+        "build.zig.zon", 
+        "README.markdown"
+    }
+ }

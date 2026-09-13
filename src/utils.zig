@@ -8,9 +8,8 @@ pub fn strLen(
     str: [*:0]const u8
 ) u64 {
     var len: u64 = 0;
-    while (str[0] != 0){
+    while (str[len] != 0){
         len = len + 1;
-        str = str + 1;
     }
     return len;
 }

@@ -6,5 +6,6 @@
 // could occur.
 pub const NeneErr = error {
     AllocErr,
-    UnexpectedChar
+    UnexpectedChar,
+    UnknownNumberPattern
 };

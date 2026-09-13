@@ -13,6 +13,10 @@ const ArrayList = std.ArrayList;
 // from the standard library.
 const Allocator = std.mem.Allocator;
 
+// Importing the function to create
+// sentinel-terminated formatted strings.
+const allocPrintZ = std.fmt.allocPrintZ;
+
 // Importing the function to get the
 // length of a string that is a pointer
 // to a null-terminated array of characters.
@@ -88,11 +92,11 @@ pub const Token = struct {
     /// any heap-allocated resources
     /// this structure may have.
     pub fn deinit(
-        self: *Token,
+        self: *const Token,
         allocator: Allocator
     ) void {
         if (self.value) |val| {
-            allocator.free(val);
+            allocator.free(std.mem.span(val));
         }
     }
 };
@@ -105,6 +109,11 @@ pub const Lexer = struct {
     err_pos: ?Position,
     allocator: Allocator,
 
+    /// A function to create
+    /// a new instance of this
+    /// data structure with the 
+    /// given parameters and return
+    /// the created instance.
     pub fn init(
         allocator: Allocator,
     ) Lexer {
@@ -114,6 +123,15 @@ pub const Lexer = struct {
         };
     }
 
+    /// A function to take a string
+    /// of Nene source code and tokenize
+    /// this string into an instance of
+    /// the `std.ArrayList` structure containing
+    /// instances of the `Token` structure. If
+    /// the operation fails due to sub-buffers or
+    /// the token stream not being writable or
+    /// an unexpected character is encountered,
+    /// an error is returned.
     pub fn lex(
         self: *Lexer,
         source: [*:0]const u8
@@ -156,7 +174,7 @@ pub const Lexer = struct {
                 column_count = column_count + 1;
             }
             else if (source[cursor] == '-' and
-                source[cursor] == '>')
+                source[cursor + 1] == '>')
             {
                 stream.append(
                     Token{
@@ -182,7 +200,7 @@ pub const Lexer = struct {
                 column_count = column_count + 2;
             }
             else if (source[cursor] == '~' and
-                source[cursor] == '~')
+                source[cursor + 1] == '~')
             {
                 stream.append(
                     Token{
@@ -208,7 +226,7 @@ pub const Lexer = struct {
                 column_count = column_count + 2;
             }
             else if (source[cursor] == '\r' and
-                source[cursor] == '\n')
+                source[cursor + 1] == '\n')
             { 
                 column_count = 0;
                 cursor = cursor + 2;
@@ -221,8 +239,12 @@ pub const Lexer = struct {
                 cursor = cursor + 1;
                 line_count = line_count + 1;
             }
+            else if (source[cursor] == ' '){
+                cursor = cursor + 1;
+                column_count = column_count + 1; 
+            }
             else if (source[cursor] == '!' and
-                source[cursor] == '=')
+                source[cursor + 1] == '=')
             {
                 stream.append(
                     Token{
@@ -943,7 +965,7 @@ pub const Lexer = struct {
                             .line = line_count,
                             .column = column_count
                         },
-                        .token_type = .GirlwaitKeyword,
+                        .token_type = .RehearsalKeyword,
                         .value = null
                     }
                 ) catch {
@@ -956,22 +978,61 @@ pub const Lexer = struct {
                 cursor = cursor + 9;
                 column_count = column_count + 9;
             }
-        }
-        else if (source[cursor] == '"'){ 
-            var char_buf: ArrayList(u8) = ArrayList(u8)
-                .init(self.allocator);
-            errdefer char_buf.deinit();
-            char_buf.append(source[cursor]) catch {
-                self.err_pos = Position{
-                    .line = line_count,
-                    .column = column_count
+            else if (source[cursor] == '"'){ 
+                const column_start: u64 = column_count;
+                cursor = cursor + 1;
+                column_count = column_count + 1;
+                var char_buf: ArrayList(u8) = ArrayList(u8)
+                    .init(self.allocator);
+                errdefer char_buf.deinit();   
+                while (source[cursor] != '"'){
+                    char_buf.append(source[cursor]) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                    cursor = cursor + 1;
+                    column_count = column_count + 1;
+                }
+                cursor = cursor + 1;
+                column_count = column_count + 1;
+                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(0) catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
                 };
-                return NeneErr.AllocErr;
-            };
-            cursor = cursor + 1;
-            column_count = column_count + 1;
-            const column_start: u64 = column_count + 1;
-            while (source[cursor] != '"'){
+                errdefer self.allocator.free(std.mem.span(joined));
+                const end_pos: Position = Position {
+                    .column = column_count,
+                    .line = line_count
+                };
+                const start_pos: Position = Position {
+                    .column = column_start,
+                    .line = line_count
+                };
+                const token: Token = Token{
+                    .end = end_pos,
+                    .start = start_pos,
+                    .value = joined,
+                    .token_type = .UserString
+                };
+                stream.append(token) catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
+                };
+            }
+            else if (isIdentChar(source[cursor])){
+                const column_start: u64 = column_count;
+                var char_buf: ArrayList(u8) = ArrayList(u8)
+                    .init(self.allocator);
+                errdefer char_buf.deinit();
                 char_buf.append(source[cursor]) catch {
                     self.err_pos = Position{
                         .line = line_count,
@@ -981,100 +1042,197 @@ pub const Lexer = struct {
                 };
                 cursor = cursor + 1;
                 column_count = column_count + 1;
-            }
-            cursor = cursor + 1;
-            column_count = column_count + 1;
-            const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(u8) catch {
-                self.err_pos = Position{
-                    .line = line_count,
-                    .column = column_count
-                };
-                return NeneErr.AllocErr;
-            };
-            errdefer self.allocator.free(std.mem.span(joined));
-            const end_pos: Position = Position {
-                .column = column_count,
-                .line = line_count
-            };
-            const start_pos: Position = Position {
-                .column = column_start,
-                .line = line_count
-            };
-            const token: Token = Token{
-                .end = end_pos,
-                .start = start_pos,
-                .value = joined,
-                .token_type = .UserString
-            };
-            stream.append(token) catch {
-                self.err_pos = Position{
-                    .line = line_count,
-                    .column = column_count
-                };
-                return NeneErr.AllocErr;
-            };
-        }
-        else if (isIdentChar(source[cursor])){
-            const column_start: u64 = column_count;
-            var char_buf: ArrayList(u8) = ArrayList(u8)
-                .init(self.allocator);
-            errdefer char_buf.deinit();
-            char_buf.append(source[cursor]) catch {
-                self.err_pos = Position{
-                    .line = line_count,
-                    .column = column_count
-                };
-                return NeneErr.AllocErr;
-            };
-            cursor = cursor + 1;
-            column_count = column_count + 1;
-            while (!isIdentChar(source[cursor])){
-                char_buf.append(source[cursor]) catch {
+                while (isIdentChar(source[cursor])){
+                    char_buf.append(source[cursor]) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                    cursor = cursor + 1;
+                    column_count = column_count + 1;
+                }
+                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(0) catch {
                     self.err_pos = Position{
                         .line = line_count,
                         .column = column_count
                     };
                     return NeneErr.AllocErr;
                 };
-                cursor = cursor + 1;
-                column_count = column_count + 1;
+                errdefer self.allocator.free(std.mem.span(joined));
+                const end_pos: Position = Position {
+                    .column = column_count,
+                    .line = line_count
+                };
+                const start_pos: Position = Position {
+                    .column = column_start,
+                    .line = line_count
+                };
+                const token: Token = Token{
+                    .end = end_pos,
+                    .start = start_pos,
+                    .value = joined,
+                    .token_type = .UserIdent
+                };
+                stream.append(token) catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
+                };
             }
-            const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(u8) catch {
-                self.err_pos = Position{
+            else if (isDigit(source[cursor])){
+                const column_start: u64 = column_count;
+                var str_buf: ArrayList([]const u8) = ArrayList([]const u8)
+                    .init(self.allocator);
+                defer {
+                    for (str_buf.items) |item| {
+                        self.allocator.free(item);
+                    }
+                    str_buf.deinit();
+                }
+                var char_buf: ArrayList(u8) = ArrayList(u8)
+                    .init(self.allocator);
+                defer char_buf.deinit();
+                while (isDigit(source[cursor]) or source[cursor] == '.'){
+                    if (isDigit(source[cursor])){
+                        char_buf.append(source[cursor]) catch {
+                            self.err_pos = Position{
+                                .line = line_count,
+                                .column = column_count
+                            };
+                            return NeneErr.AllocErr;
+                        };
+                    }
+                    else if (source[cursor] == '.'){
+                        const joined: []const u8 = char_buf.toOwnedSlice() catch {
+                            self.err_pos = Position{
+                                .line = line_count,
+                                .column = column_count
+                            };
+                            return NeneErr.AllocErr;
+                        };
+                        str_buf.append(joined) catch {
+                            self.err_pos = Position{
+                                .line = line_count,
+                                .column = column_count
+                            };
+                            return NeneErr.AllocErr;
+                        };
+                    }
+                    else {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.UnexpectedChar;
+                    }
+                    cursor = cursor + 1;
+                    column_count = column_count + 1;
+                }
+                const joined: []const u8 = char_buf.toOwnedSlice() catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
+                };
+                str_buf.append(joined) catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
+                };
+                if (str_buf.items.len == 2){
+                    const fmtd: [*:0]const u8 = allocPrintZ(
+                        self.allocator,
+                        "{s}.{s}",
+                        .{str_buf.items[0],
+                          str_buf.items[1]
+                        }
+                    ) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                    errdefer self.allocator.free(std.mem.span(fmtd));
+                    const end_pos: Position = Position {
+                        .column = column_count,
+                        .line = line_count
+                    };
+                    const start_pos: Position = Position {
+                        .column = column_start,
+                        .line = line_count
+                    };
+                    const token: Token = Token{
+                        .end = end_pos,
+                        .start = start_pos,
+                        .value = fmtd,
+                        .token_type = .Float
+                    };
+                    stream.append(token) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                }
+                else if (str_buf.items.len == 1){
+                    const fmtd: [*:0]const u8 = allocPrintZ(
+                        self.allocator,
+                        "{s}",
+                        .{str_buf.items[0]}
+                    ) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                    errdefer self.allocator.free(std.mem.span(fmtd));
+                    const end_pos: Position = Position {
+                        .column = column_count,
+                        .line = line_count
+                    };
+                    const start_pos: Position = Position {
+                        .column = column_start,
+                        .line = line_count
+                    };
+                    const token: Token = Token{
+                        .end = end_pos,
+                        .start = start_pos,
+                        .value = fmtd,
+                        .token_type = .Int
+                    };
+                    stream.append(token) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                }
+                else {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.UnknownNumberPattern;
+                }
+            }
+            else {
+                self.err_pos = Position {
                     .line = line_count,
                     .column = column_count
                 };
-                return NeneErr.AllocErr;
-            };
-            errdefer self.allocator.free(std.mem.span(joined));
-            const end_pos: Position = Position {
-                .column = column_count,
-                .line = line_count
-            };
-            const start_pos: Position = Position {
-                .column = column_start,
-                .line = line_count
-            };
-            const token: Token = Token{
-                .end = end_pos,
-                .start = start_pos,
-                .value = joined,
-                .token_type = .UserIdent
-            };
-            stream.append(token) catch {
-                self.err_pos = Position{
-                    .line = line_count,
-                    .column = column_count
-                };
-                return NeneErr.AllocErr;
-            };
-        }
-        else {
-            self.err_pos = Position {
-                .line = line_count,
-                .column = column_count
-            };
-            return NeneErr.UnexpectedChar;
+                return NeneErr.UnexpectedChar;
+            } 
         }
         return stream;
     }

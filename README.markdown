@@ -17,7 +17,7 @@ A specification of the Nene programming language can be found [here](https://aly
 
 This project is still work in progress.
 
-- [ ] Lexer.
+- [x] Lexer.
 - [ ] Parser.
 - [ ] IR-Generator.
 - [ ] IR-Optimizer.

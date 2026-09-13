@@ -27,5 +27,5 @@ This project is still work in progress.
 
 ## NOTE
 
-- *Wayob* by *Alyx Shang*.
+- *Nene* by *Alyx Shang*.
 - Licensed under the [FSL v1](https://alyxshang.boo/content/fair-software-license).

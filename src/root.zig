@@ -11,6 +11,10 @@ pub const err = @import("err.zig");
 // about a token's position.
 pub const pos = @import("pos.zig");
 
+// Exporting the function containing
+// some utility functions.
+pub const utils = @import("utils.zig");
+
 // Exporting the module containing
 // Nene's tokenizer.
 pub const lexer = @import("lexer.zig");

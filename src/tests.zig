@@ -32,9 +32,10 @@ test "Testing the module containing some utility functions." {
 // Testing the module containing Nene's tokenizer.
 test "Testing the module containing Nene's tokenizer." {
     const test_str =
-        \\% + -> : - , ? / ~~ = * < { my_str "hello" 
+        \\% + -> : - , ? / = * < { my_str "hello" 
         \\} != bag fin ( > vibe load slay naww yass
         \\with from ) funky inspo girlwait rehearsal
+        \\~~ This is a comment.
         \\45 56.78
     ;
     var ml: lexer.Lexer = lexer.Lexer.init(std.testing.allocator);

@@ -43,40 +43,40 @@ const isIdentChar = @import("utils.zig").isIdentChar;
 /// possible tokens in a Nene program.
 pub const TokenType = enum(u8) {
     Int,
-    Mod, // done.
-    Plus, // done.
-    Case, // done.
+    Mod,
+    Plus,
+    Case,
     Float,
-    Colon, // done. 
-    Minus, // done.
-    Comma, // done.
-    Option, // done.
-    Divide, // done. 
-    Comment, // done.
-    IsEqual, // done. 
-    Multiply, // done.
-    LessThan, // done. 
-    OpenCurly, // done.
-    UserIdent, // done.
-    UserString, // done.
-    CloseCurly, // done.
-    IsNotEqual, // done.
-    BagKeyword, // done.
-    FinKeyword, // done.
-    OpenBracket, // done.
-    GreaterThan, // done.
-    VibeKeyword, // done.
-    LoadKeyword, // done.
-    SlayKeyword, // done.
-    NawwKeyword, // done.
-    YassKeyword, // done.
-    WithKeyword, // done.
-    FromKeyword, // done.
-    CloseBracket, // done.
-    FunkyKeyword, // done.
-    InspoKeyword, // done.
-    GirlwaitKeyword, // done.
-    RehearsalKeyword, // done.
+    Colon,
+    Minus,
+    Comma,
+    Option,
+    Divide,
+    Comment,
+    IsEqual,
+    Multiply,
+    LessThan, 
+    OpenCurly,
+    UserIdent,
+    UserString,
+    CloseCurly,
+    IsNotEqual,
+    BagKeyword,
+    FinKeyword,
+    OpenBracket,
+    GreaterThan,
+    VibeKeyword,
+    LoadKeyword,
+    SlayKeyword,
+    NawwKeyword,
+    YassKeyword,
+    WithKeyword,
+    FromKeyword,
+    CloseBracket,
+    FunkyKeyword,
+    InspoKeyword,
+    GirlwaitKeyword,
+    RehearsalKeyword,
 };
 
 /// A structure to encapsulate
@@ -200,8 +200,34 @@ pub const Lexer = struct {
                 column_count = column_count + 2;
             }
             else if (source[cursor] == '~' and
-                source[cursor + 1] == '~')
+                source[cursor + 1] == '~' and
+                source[cursor + 2] == ' ')
             {
+                cursor = cursor + 3;
+                column_count = column_count + 3;
+                var char_buf: ArrayList(u8) = ArrayList(u8)
+                    .init(self.allocator);
+                errdefer char_buf.deinit();
+                while (source[cursor] != '\n' and source[cursor] != '\r'){
+                    char_buf.append(source[cursor]) catch {
+                        self.err_pos = Position{
+                            .line = line_count,
+                            .column = column_count
+                        };
+                        return NeneErr.AllocErr;
+                    };
+                    cursor = cursor + 1;
+                    column_count = column_count + 1;
+                }
+                const comment_joined: [*:0]const u8 = char_buf
+                    .toOwnedSliceSentinel(0) catch {
+                    self.err_pos = Position{
+                        .line = line_count,
+                        .column = column_count
+                    };
+                    return NeneErr.AllocErr;
+                };
+                errdefer self.allocator.free(std.mem.span(comment_joined));
                 stream.append(
                     Token{
                         .end = Position{
@@ -213,7 +239,7 @@ pub const Lexer = struct {
                             .column = column_count
                         },
                         .token_type = .Comment,
-                        .value = null
+                        .value = comment_joined
                     }
                 ) catch {
                     self.err_pos = Position{
@@ -222,8 +248,6 @@ pub const Lexer = struct {
                     };
                     return NeneErr.AllocErr;
                 };
-                cursor = cursor + 2;
-                column_count = column_count + 2;
             }
             else if (source[cursor] == '\r' and
                 source[cursor + 1] == '\n')

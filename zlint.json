@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "avoid-as": "error",
+    "homeless-try": "error",
+    "must-return-ref": "off",
+    "unsafe-undefined": "off",
+    "case-convention": "error"
+  }
+}

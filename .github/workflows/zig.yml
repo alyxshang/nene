@@ -1,0 +1,23 @@
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install dependencies."
+        run: sudo apt update && sudo apt install -y curl
+
+      - name: "Setup Zig."
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: "Install ZLint."
+        run: curl -fsSL https://raw.githubusercontent.com/DonIsaac/zlint/refs/heads/main/tasks/install.sh | bash
+
+      - name: "Run tests."
+        run: zig build test --summary all
+
+      - name: "Run linter."
+        run: zlint

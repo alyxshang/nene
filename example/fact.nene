@@ -1,0 +1,11 @@
+# FACT.NENE by Alyx Shang.
+# Licensed under the FSL v1.
+
+funky factorial (int num) = factorial_rec(num) fin
+
+funky factorial_rec (int num, int index, int prod) =
+  vibe (index)
+    num = index -> prod
+    num != index -> factorial (num, (index + 1), (prod * index))
+  fin
+fin

@@ -1,0 +1,2 @@
+inspo "factorial" from "fact.nene"
+funky main () = "print" from "std" with (factorial(5)) fin # 120

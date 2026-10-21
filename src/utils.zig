@@ -41,16 +41,17 @@ pub fn cloneSlice(
     allocator: Allocator
 ) ![*:0]const u8 {
     var cursor: u64 = 0;
-    var chars: ArrayList(u8) = ArrayList(u8)
-        .init(allocator);
-    errdefer chars.deinit();
+    var chars: ArrayList(u8) = .empty;
+    errdefer chars.deinit(allocator);
     while (sub[cursor] != 0){
-        chars.append(sub[cursor])
+        chars.append(allocator, sub[cursor])
             catch return NeneErr.WriteErr;
         cursor = cursor + 1;
     }
-    const joined: [*:0]const u8 = chars.toOwnedSliceSentinel(0)
-        catch return NeneErr.AllocErr;
+    const joined: [*:0]const u8 = chars.toOwnedSliceSentinel(
+        allocator,
+        0
+    ) catch return NeneErr.AllocErr;
     errdefer allocator.free(std.mem.span(joined));
     return joined;
 }

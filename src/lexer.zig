@@ -108,7 +108,7 @@ pub const Token = struct {
     /// resources this structure
     /// holds.
     pub fn deinit(
-        self: *Token,
+        self: *const Token,
         allocator: Allocator
     ) void {
         if (self.value) |val| {
@@ -168,24 +168,23 @@ pub const Lexer = struct {
     pub fn lex(
         self: *Lexer
     ) !ArrayList(Token) {
-        var result: ArrayList(Token) = ArrayList(Token)
-            .init(self.allocator);
+        var result: ArrayList(Token) = .empty;
         errdefer {
             for (result.items) |item| {
                 item.deinit(self.allocator);
             }
-            result.deinit();
+            result.deinit(self.allocator);
         }
         while (self.cursor < self.length){
             if (self.source[self.cursor] == ' ' or
-                self.soource[self.cursor] == '\t'
+                self.source[self.cursor] == '\t'
                )
             {
                 self.column = self.column + 1;
                 self.cursor = self.cursor + 1;
             }
             else if (self.source[self.cursor] == '\n' or
-                self.soource[self.cursor] == '\r'
+                self.source[self.cursor] == '\r'
                )
             {
                 self.line = self.line + 1;
@@ -193,7 +192,7 @@ pub const Lexer = struct {
                 self.cursor = self.cursor + 1;
             }
             else if (self.source[self.cursor] == '\r' and
-                self.soource[self.cursor + 1] == '\n'
+                self.source[self.cursor + 1] == '\n'
                )
             {
                 self.line = self.line + 1;
@@ -211,7 +210,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -234,7 +233,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -252,7 +251,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -270,7 +269,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -288,7 +287,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -306,7 +305,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -324,7 +323,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -342,7 +341,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -360,7 +359,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -378,7 +377,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -396,7 +395,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -414,7 +413,7 @@ pub const Lexer = struct {
                     null,
                     &start
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -438,7 +437,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -463,7 +462,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -490,7 +489,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -517,7 +516,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -544,7 +543,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -570,7 +569,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -596,7 +595,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -622,7 +621,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -648,7 +647,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -674,7 +673,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -683,7 +682,7 @@ pub const Lexer = struct {
             }
             else if (self.source[self.cursor] == '#'){
                 const start_col: u64 = self.column;
-                while (self.source[self.cursor] != '\n' or 
+                while (self.source[self.cursor] != '\n' and 
                        self.source[self.cursor] != '\r')
                 {
                     self.cursor = self.cursor + 1;
@@ -703,7 +702,7 @@ pub const Lexer = struct {
                     null,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
@@ -712,27 +711,31 @@ pub const Lexer = struct {
                 const start_col: u64 = self.column;
                 self.cursor = self.cursor + 1;
                 self.column = self.column + 1;
-                var char_buf: ArrayList(u8) = ArrayList(u8)
-                    .init(self.allocator);
-                errdefer char_buf.deinit();
+                var char_buf: ArrayList(u8) = .empty;
+                errdefer char_buf.deinit(self.allocator);
                 while (self.source[self.cursor] != '"'){
-                    char_buf.append(self.source[self.cursor]) catch {
-                        self.err_pos = Position.init(
+                    char_buf.append(self.allocator, self.source[self.cursor]) catch {
+                        const err_pos: Position = Position.init(
                             self.line, 
                             self.column
                         );
-                        return NeneErr.UnexpectedCharacter;
+                        self.err_pos = &err_pos;
+                        return NeneErr.WriteErr;
                     };
                     self.cursor = self.cursor + 1;
                     self.column = self.column + 1;
                 }
                 self.cursor = self.cursor + 1;
                 self.column = self.column + 1;
-                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(0) catch {
-                    self.err_pos = Position.init(
+                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(
+                    self.allocator, 
+                    0
+                ) catch {
+                    const err_pos: Position = Position.init(
                         self.line, 
                         self.column
                     );
+                    self.err_pos = &err_pos;
                     return NeneErr.AllocErr;
                 };
                 errdefer self.allocator.free(std.mem.span(joined));
@@ -750,22 +753,22 @@ pub const Lexer = struct {
                     joined,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
             }
             else if (isIdentChar(self.source[self.cursor])){
                 const start_col: u64 = self.column;
-                var char_buf: ArrayList(u8) = ArrayList(u8)
-                    .init(self.allocator);
-                errdefer char_buf.deinit();
+                var char_buf: ArrayList(u8) = .empty;
+                errdefer char_buf.deinit(self.allocator);
                 while (isIdentChar(self.source[self.cursor])){
-                    char_buf.append(self.source[self.cursor]) catch {
-                        self.err_pos = Position.init(
+                    char_buf.append(self.allocator, self.source[self.cursor]) catch {
+                        const err_pos: Position = Position.init(
                             self.line, 
                             self.column
                         );
+                        self.err_pos = &err_pos;
                         return NeneErr.UnexpectedCharacter;
                     };
                     self.cursor = self.cursor + 1;
@@ -773,11 +776,15 @@ pub const Lexer = struct {
                 }
                 self.cursor = self.cursor + 1;
                 self.column = self.column + 1;
-                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(0) catch {
-                    self.err_pos = Position.init(
+                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(
+                    self.allocator,
+                    0
+                ) catch {
+                    const err_pos: Position = Position.init(
                         self.line, 
                         self.column
                     );
+                    self.err_pos = &err_pos;
                     return NeneErr.AllocErr;
                 };
                 errdefer self.allocator.free(std.mem.span(joined));
@@ -795,68 +802,79 @@ pub const Lexer = struct {
                     joined,
                     &end
                 );
-                result.append(token) catch {
+                result.append(self.allocator, token) catch {
                     self.err_pos = &start;
                     return NeneErr.WriteErr;
                 };
             }
             else if (isNumChar(self.source[self.cursor])){
                 const start_col: u64 = self.column;
-                var char_buf: ArrayList(u8) = ArrayList(u8)
-                    .init(self.allocator);
-                errdefer char_buf.deinit();
-                var str_buf: ArrayList([*:0]const u8) = ArrayList([*:0]const u8)
-                    .init(self.allocator);
-                errdefer {
+                var char_buf: ArrayList(u8) = .empty;
+                defer char_buf.deinit(self.allocator);
+                var str_buf: ArrayList([*:0]const u8) = .empty;
+                defer {
                     for (str_buf.items) |item| {
                         self.allocator.free(std.mem.span(item));
                     }
-                    str_buf.deinit();
+                    str_buf.deinit(self.allocator);
                 }
                 while (isNumChar(self.source[self.cursor]) or 
                        self.source[self.cursor] == '.')
                 {
                     if (self.source[self.cursor] == '.'){
-                        const joined: []const u8 = char_buf.toOwnedSliceSentinel(0) catch {
-                            self.err_pos = Position.init(
+                        const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(
+                            self.allocator,
+                            0
+                        ) catch {
+                            const err_pos: Position = Position.init(
                                 self.line, 
                                 self.column
                             );
+                            self.err_pos = &err_pos;
                             return NeneErr.AllocErr;
                         };
                         errdefer self.allocator.free(std.mem.span(joined));
-                        char_buf.clearRetainingCapactiy();
-                        str_buf.append(joined) catch {
-                            self.err_pos = Position.init(
+                        char_buf.clearRetainingCapacity();
+                        str_buf.append(self.allocator, joined) catch {
+                            const err_pos: Position = Position.init(
                                 self.line, 
                                 self.column
                             );
+                            self.err_pos = &err_pos;
                             return NeneErr.WriteErr;
                         };
+                        self.cursor = self.cursor + 1;
+                        self.column = self.column + 1;
+
                     }
-                    char_buf.append(self.source[self.cursor]) catch {
-                        self.err_pos = Position.init(
-                            self.line,
+                    char_buf.append(self.allocator, self.source[self.cursor]) catch {
+                        const err_pos: Position = Position.init(
+                            self.line, 
                             self.column
                         );
+                        self.err_pos = &err_pos;
                         return NeneErr.UnexpectedCharacter;
                     };
                     self.cursor = self.cursor + 1;
                     self.column = self.column + 1;
                 }
-                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(0) catch {
-                    self.err_pos = Position.init(
-                        self.line, 
+                const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(
+                    self.allocator,
+                    0
+                ) catch {
+                    const err_pos: Position = Position.init(
+                        self.line,
                         self.column
                     );
+                    self.err_pos = &err_pos;
                     return NeneErr.AllocErr;
                 };
-                errdefer self.allocator.free(joined);
-                str_buf.append(joined) catch {
-                    self.err_pos = Position.init(
-                        self.line, 
+                str_buf.append(self.allocator, joined) catch {
+                    const err_pos: Position = Position.init(
+                        self.line,
                         self.column
                     );
+                    self.err_pos = &err_pos;
                     return NeneErr.WriteErr;
                 };
                 if (str_buf.items.len == 2){
@@ -864,34 +882,37 @@ pub const Lexer = struct {
                         str_buf.items[0],
                         self.allocator
                     ) catch {
-                        self.err_pos = Position.init(
-                            self.line, 
+                         const err_pos: Position = Position.init(
+                            self.line,
                             self.column
                         );
+                        self.err_pos = &err_pos;
                         return NeneErr.AllocErr;
                     };
-                    errdefer self.allocator.free(std.mem.span(front));
+                    defer self.allocator.free(std.mem.span(front));
                     const back: [*:0]const u8 = cloneSlice(
                         str_buf.items[1],
                         self.allocator
                     ) catch {
-                        self.err_pos = Position.init(
-                            self.line, 
+                        const err_pos: Position = Position.init(
+                            self.line,
                             self.column
                         );
+                        self.err_pos = &err_pos;
                         return NeneErr.AllocErr;
                     };
-                    errdefer self.allocator.free(std.mem.span(back));
+                    defer self.allocator.free(std.mem.span(back));
                     const formatted: [*:0]const u8 = std.fmt.allocPrintSentinel(
                         self.allocator,
                         "{s}.{s}",
                         .{std.mem.span(front), std.mem.span(back)},
-                        u8
+                        0
                     ) catch {
-                        self.err_pos = Position.init(
-                            self.line, 
+                        const err_pos: Position = Position.init(
+                            self.line,
                             self.column
                         );
+                        self.err_pos = &err_pos;
                         return NeneErr.AllocErr;
                     };
                     errdefer self.allocator.free(std.mem.span(formatted));
@@ -909,18 +930,21 @@ pub const Lexer = struct {
                         formatted,
                         &end
                     );
-                    result.append(token) catch {
-                        self.err_pos = &start;
-                        return NeneErr.WriteErr;
+                    result.append(self.allocator, token) catch {
+                       const err_pos: Position = Position.init(
+                            self.line,
+                            self.column
+                        );
+                        self.err_pos = &err_pos;
+                        return NeneErr.AllocErr;
                     };
-
                 }
                 else if (str_buf.items.len == 1){
                     const num: [*:0]const u8 = cloneSlice(
                         str_buf.items[0],
                         self.allocator
                     ) catch {
-                        self.err_pos = Position.init(
+                        self.err_pos = &Position.init(
                             self.line, 
                             self.column
                         );
@@ -941,24 +965,30 @@ pub const Lexer = struct {
                         num,
                         &end
                     );
-                    result.append(token) catch {
-                        self.err_pos = &start;
+                    result.append(self.allocator, token) catch {
+                        const err_pos: Position = Position.init(
+                            self.line,
+                            self.column
+                        );
+                        self.err_pos = &err_pos;
                         return NeneErr.WriteErr;
                     };
                 }
                 else {
-                    self.err_pos = Position.init(
+                    const err_pos: Position = Position.init(
                         self.line, 
                         self.column
                     );
+                    self.err_pos = &err_pos;
                     return NeneErr.UnexpectedNumberFormatErr;
                 } 
             }
             else {
-                self.err_pos = Position.init(
+                const err_pos: Position = Position.init(
                     self.line, 
                     self.column
                 );
+                self.err_pos = &err_pos;
                 return NeneErr.UnexpectedCharacter;
             }
         }

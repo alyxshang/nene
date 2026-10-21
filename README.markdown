@@ -8,6 +8,10 @@
 
 This repository contains the source code for an interpreter for a statically-typed, functional, semi-esoteric, interpreted programming language. The language, Nene, was designed by me. *Nene* is the Nahuatl word for "doll" or "figurine".
 
+## SPECIFICATION
+
+A specification for the Nene programming language can be found [here](https://alyxshang.boo/specs/nene/).
+
 ## STATUS
 
 ***THIS PROJECT IS STILL WORK IN PROGRESS.***

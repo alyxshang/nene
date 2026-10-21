@@ -1,5 +1,7 @@
 # NENE
 
+![Nene CI](https://github.com/alyxshang/nene/actions/workflows/zig.yml/badge.svg)
+
 ***The interpreter for a statically-typed, functional, semi-esoteric, interpreted programming language.***
 
 ## ABOUT 
@@ -12,7 +14,7 @@ This repository contains the source code for an interpreter for a statically-typ
 
 ## TODO
 
-- [ ] Tests.
+- [x] Tests.
 - [x] Lexer.
 - [x] Parser.
 - [ ] Compiler.

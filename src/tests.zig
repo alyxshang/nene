@@ -28,6 +28,10 @@ const Lexer = @import("lexer.zig").Lexer;
 // parser to test it.
 const Parser = @import("parser.zig").Parser;
 
+// Importing the union of enumerations that encapsulate
+// data about a block-level statement in Nene source code.
+const BlockStatement = @import("parser.zig").BlockStatement;
+
 // A test block for testing the module 
 // containing some utility functions.
 test "Testing the module containing some utility functions." {
@@ -73,4 +77,35 @@ test "Testing the module containing the tokenizer." {
 // A test block for testing the module
 // containing Nene's parser.
 test "Testing the structure containing Nene's parser." {
+    const source: [*:0]const u8 =
+        \\# FACT.NENE by Alyx Shang.
+        \\# Licensed under the FSL v1.
+        \\
+        \\funky factorial (int num) = factorial_rec(num) fin
+        \\funky factorial_rec (int num, int index, int prod) =
+        \\  vibe (index)
+        \\      num = index -> prod
+        \\      num != index -> factorial (num, (index + 1), (prod * index))
+        \\  fin
+        \\fin
+    ;
+    var lexer: Lexer = Lexer.init(
+        std.testing.allocator,
+        source
+    );
+    var lexed: ArrayList(Token) = try lexer.lex();
+    defer {
+        for (lexed.items) |item| {
+            item.deinit(std.testing.allocator);
+        }
+        lexed.deinit(std.testing.allocator);
+    }
+    var parser: Parser = Parser.init(
+        std.testing.allocator,
+        &lexed
+    );
+    const parsed: ArrayList(BlockStatement) = try parser.parse();
+    for (parsed.items) |item| {
+        std.debug.print("{any}\n", .{item});
+    }
 }

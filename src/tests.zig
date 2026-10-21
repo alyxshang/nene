@@ -24,6 +24,10 @@ const Token = @import("lexer.zig").Token;
 // code.
 const Lexer = @import("lexer.zig").Lexer;
 
+// Importing the structure containing Nene's
+// parser to test it.
+const Parser = @import("parser.zig").Parser;
+
 // A test block for testing the module 
 // containing some utility functions.
 test "Testing the module containing some utility functions." {
@@ -64,4 +68,9 @@ test "Testing the module containing the tokenizer." {
         lexed.deinit(std.testing.allocator);
     }
     try std.testing.expect(lexed.items.len == 27);
+}
+
+// A test block for testing the module
+// containing Nene's parser.
+test "Testing the structure containing Nene's parser." {
 }

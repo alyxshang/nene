@@ -25,11 +25,6 @@ const Allocator = std.mem.Allocator;
 // into a float type.
 const parseFloat = std.fmt.parseFloat;
 
-// Importing the enumeration that
-// "lists" all possible types of tokens
-// in Nene source code.
-const TokenType = @import("lexer.zig").TokenType;
-
 // Importing the structure for encapsulating
 // data about a token captured from Nene source
 // code.
@@ -39,6 +34,11 @@ const Token = @import("lexer.zig").Token;
 // handle errors.
 const NeneErr = @import("err.zig").NeneErr;
 
+// Importing the enumeration that
+// "lists" all possible types of tokens
+// in Nene source code.
+const TokenType = @import("lexer.zig").TokenType;
+
 // Importing the structure to record information
 // about the positions of a token in a string of
 // text.
@@ -47,6 +47,34 @@ const Position = @import("position.zig").Position;
 // Importing the function to clone a pointer
 // to a null-terminated array of characters.
 const cloneSlice = @import("utils.zig").cloneSlice;
+
+/// An enumeration that "lists"
+/// all possible binary operators
+/// in a binary operation.
+pub const Operator = enum(u8){
+    Plus,
+    Minus,
+    Times,
+    Equal,
+    Divide,
+    Larger,
+    Smaller,
+    NotEqual,
+};
+
+pub const BinaryExpression = struct {
+    operator: Operator,
+    left: *const Expression,
+    right: *const Expression,
+
+    pub fn deinit(
+        self: *BinaryExpression,
+        allocator: Allocator
+    ) void {
+        self.left.*.deinit(allocator);
+        self.right.*.deinit(allocator);
+    }
+};
 
 /// A structure to encapsulate
 /// information about a set of
@@ -144,8 +172,8 @@ pub const BlockStatement = union(enum){
     },
     Function: struct {
         name: [*:0]const u8,
-        body: ArrayList(Expression),
-        arguments: ArrayList(ArgumentPair),
+        body: *const ArrayList(Expression),
+        arguments: *const ArrayList(ArgumentPair),
     },
 
     /// A function to drop all
@@ -359,6 +387,42 @@ pub const Parser = struct {
         }
     }
 
+    pub fn parseFunctionDef(
+        self: *Parser
+    ) !BlockStatement {
+        _ = try self.expect(.FunkyKeyword);
+        const ident_token: Token = try self.expect(.UserIdent);
+        _ = try self.expect(.OpenBracket);
+        var pairs: ArrayList(ArgumentPair) = ArrayList(ArgumentPair)
+            .init(self.allocator);
+        errdefer {
+            for (pairs.items) |item| {
+                item.deinit(self.allocator);
+            }
+            pairs.deinit();
+        }
+        while ((try self.peekN(0)).token_type != .CloseBracket){
+        }
+        _ = try self.expect(.CloseBracket);
+        _ = try self.expect(.Equal);
+        var expressions: ArrayList(Expression) = ArrayList(Expression)
+            .init(self.allocator);
+        errdefer {
+            for (expressions.items) |item| {
+                item.deinit(self.allocator);
+            }
+            expressions.deinit();
+        }
+        while ((try self.peekN(0)).token_type != .FinKeyword){
+            expressions.append(try self.parseExpression()) catch {
+                self.err_pos = &self.token_stream[self.cursor].start;
+                return NeneErr.WriteErr;
+            };
+        }
+
+
+    }
+
     pub fn parseExpression(
         self: *Parser
     ) !Expression {
@@ -496,7 +560,39 @@ pub const Parser = struct {
         var expressions: ArrayList(Expression) = ArrayList(Expression)
             .init(self.allocator);
         errdefer {
-
+            for (expressions.items) |item| {
+                item.deinit(self.allocator);
+            }
+            expressions.deinit();
+        }
+        while ((try self.peekN(0)).token_type != .CloseBracket){
+            const peeked: Token = try self.peekN(1);
+            if (peeked.token_type != .CloseBracket){
+                _ = try self.expect(.Comma);
+            }
+            expressions.append(try self.parseExpression()) catch {
+                self.err_pos = &self.token_stream[self.cursor].start;
+                return NeneErr.UnexpectedTokenErr;
+            };
+        }
+        if (fn_name.value) |val| {
+            const name: [*:0]const u8 = cloneSlice(
+                val,
+                self.allocator
+            ) catch {
+                self.err_pos = fn_name.start;
+                return NeneErr.AllocErr;
+            };
+            errdefer self.allocator.free(std.mem.span(name));
+            const fn_call: FunctionCall = FunctionCall{
+                .name = name,
+                .arguments = expressions
+            };
+            return Expression{ .FunctionCall = fn_call };
+        }
+        else {
+            self.err_pos = fn_name.start;
+            return NeneErr.NoValueErr;
         }
     }
 
@@ -534,6 +630,19 @@ pub const Parser = struct {
         return Expression{ .BinaryExpression = bin_expr };
     }
 
+    pub fn parseLiteral(
+        self: *Parser
+    ) !Expression {
+        const peeked: Token = try self.peekN(0);
+        switch (peeked.token_type) {
+            .Float => return (try self.parseFloatLiteral()),
+            .Number => return (try self.parseIntegerLiteral()),
+            .TrueKeyword => return (try self.parseBoolLiteral()),
+            .FalseKeyword => return (try self.parseBoolLiteral()),
+            .UserString => return (try self.parseStringLiteral()),
+        }
+    }
+
     pub fn parseCaseBlock(
         self: *Parser
     ) !Expression {
@@ -551,10 +660,19 @@ pub const Parser = struct {
             const literal: Expression = try self.parseLiteral();
             _ = try self.expect(.CaseOperator);
             const result: Expression = try self.parseExpression();
-            // create pair.
+            const case: CasePair = CasePair {
+                .left = literal,
+                .right = result
+            };
+            cases.append(case) catch {
+                self.err_pos = &self.token_stream[self.cursor].start;
+                return NeneErr.WriteErr;
+            };
         }
         _ = try self.expect(.FinKeyword);
         const case_block: CaseBlock = CaseBlock {
+            .condition = expr,
+            .cases = cases
         };
         return Expression{ .CaseBlock = case_block };
     }

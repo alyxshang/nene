@@ -10,6 +10,7 @@ pub const NeneErr = error {
     NoValueErr,
     ParseIntErr,
     ParseFloatErr,
+    WrongNodeTypeErr,
     UnexpectedTokenErr,
     UnexpectedCharacter,
     UnexpectedEndOfStream,

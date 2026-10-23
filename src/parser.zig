@@ -296,7 +296,7 @@ pub const Parser = struct {
     ) NeneErr!Token {
         const new_cursor = self.cursor + n;
         if (new_cursor < self.token_stream.items.len){
-            return self.token_stream.items[self.cursor];
+            return self.token_stream.items[new_cursor];
         }
         else {
             return NeneErr.UnexpectedEndOfStream;
@@ -518,20 +518,29 @@ pub const Parser = struct {
             }
             pairs.deinit(self.allocator);
         }
-        while ((try self.peekN(0)).token_type != .CloseBracket){
-            const peeked: Token = try self.peekN(1);
-            if (peeked.token_type != .CloseBracket){
-                _ = try self.expect(.Comma);
+        while (self.cursor < self.token_stream.items.len){
+            const peeked: Token = try self.peekN(0); 
+            if (self.isDone()){
+                return NeneErr.UnexpectedEndOfTokenStreamErr;
             }
-            pairs.append(
-                self.allocator,
-                (try self.parseArgumentPair())
-            ) catch {
-                self.err_pos = self.token_stream.items[self.cursor].start;
-                return NeneErr.UnexpectedTokenErr;
-            };
+            else if (peeked.token_type == .CloseBracket){
+                self.advance();
+                break;
+            }
+            else {
+                const pa: ArgumentPair = try self.parseArgumentPair();
+                pairs.append(
+                    self.allocator,
+                    pa
+                ) catch {
+                    self.err_pos = self.token_stream.items[self.cursor].start;
+                    return NeneErr.WriteErr;
+                };
+                if ((try self.peekN(0)).token_type != .CloseBracket) {
+                    _ = try self.expect(.Comma);
+                } 
+            }
         }
-        _ = try self.expect(.CloseBracket);
         _ = try self.expect(.Equal);
         var expressions: ArrayList(Expression) = .empty;
         errdefer {
@@ -549,6 +558,7 @@ pub const Parser = struct {
                 return NeneErr.WriteErr;
             };
         }
+        _ = try self.expect(.FinKeyword);
         const arg_ptr = self.allocator.create(ArrayList(ArgumentPair)) catch {
             self.err_pos = self.token_stream.items[self.cursor].start;
             return NeneErr.AllocErr;

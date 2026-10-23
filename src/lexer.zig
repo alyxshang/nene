@@ -458,7 +458,7 @@ pub const Lexer = struct {
                 );
                 const token: Token = Token.init(
                     &start,
-                    .FunkyKeyword,
+                    .FinKeyword,
                     null,
                     &end
                 );
@@ -774,8 +774,8 @@ pub const Lexer = struct {
                     self.cursor = self.cursor + 1;
                     self.column = self.column + 1;
                 }
-                self.cursor = self.cursor + 1;
-                self.column = self.column + 1;
+                //self.cursor = self.cursor + 1;
+                //self.column = self.column + 1;
                 const joined: [*:0]const u8 = char_buf.toOwnedSliceSentinel(
                     self.allocator,
                     0

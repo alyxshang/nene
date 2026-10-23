@@ -81,12 +81,10 @@ test "Testing the structure containing Nene's parser." {
         \\# FACT.NENE by Alyx Shang.
         \\# Licensed under the FSL v1.
         \\
-        \\funky factorial (int num) = factorial_rec(num) fin
-        \\funky factorial_rec (int num, int index, int prod) =
-        \\  vibe (index)
-        \\      num = index -> prod
-        \\      num != index -> factorial (num, (index + 1), (prod * index))
-        \\  fin
+        \\inspo "print" from "std"
+        \\inspo "factorial" from "fact.nene"
+        \\
+        \\funky factorial(int prod, int num) =
         \\fin
     ;
     var lexer: Lexer = Lexer.init(
@@ -99,13 +97,17 @@ test "Testing the structure containing Nene's parser." {
             item.deinit(std.testing.allocator);
         }
         lexed.deinit(std.testing.allocator);
-    }
+    } 
     var parser: Parser = Parser.init(
         std.testing.allocator,
         &lexed
     );
-    const parsed: ArrayList(BlockStatement) = try parser.parse();
-    for (parsed.items) |item| {
-        std.debug.print("{any}\n", .{item});
+    var parsed: ArrayList(BlockStatement) = try parser.parse();
+    defer {
+        for (parsed.items) |*item| {
+            item.deinit(std.testing.allocator);
+        }
+        parsed.deinit(std.testing.allocator);
     }
+    try std.testing.expect(parsed.items.len == 5);
 }

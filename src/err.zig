@@ -14,5 +14,6 @@ pub const NeneErr = error {
     UnexpectedTokenErr,
     UnexpectedCharacter,
     UnexpectedEndOfStream,
-    UnexpectedNumberFormatErr
+    UnexpectedNumberFormatErr,
+    UnexpectedEndOfTokenStreamErr
 };

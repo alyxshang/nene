@@ -23,31 +23,15 @@ const NeneErr = @import("err.zig").NeneErr;
 // to a null-terminated array of characters.
 const cloneSlice = @import("utils.zig").cloneSlice;
 
+// Importing the union of enumerations that "lists"
+// all possible types of expressions in Nene source
+// code.
 const Expression = @import("parser.zig").Expression;
 
+// Importing the union of enumerations that "lists"
+// all possible types of block-level statements in 
+// Nene source code.
 const BlockStatement = @import("parser.zig").BlockStatement;
-
-pub const Instruction = union(enum) {
-    ADD: void, // done.
-    SUB: void, // done.
-    DIV: void, // done.
-    MUL: void, // done.
-    CALL: u64,
-    MODULO: void, // done.
-    RETURN: void, // done.
-    JUMP_FRWD: u64, 
-    LOAD_CONST: u64,
-    EXTERN_CALL: u64,
-    COMPARE_EQ: void, // done.
-    COMPARE_GT: void, // done.
-    COMPARE_LT: void, // done.
-    COMPARE_NEQ: void, // done.
-    STORE_CONST: void,
-    MODIFY_CONST: u64,
-    CREATE_STRUCT: u64, 
-    JUMP_BACK_IF_TRUE: u64,
-    JUMP_FRWD_IF_TRUE: u64,
-};
 
 pub const NeneValue = union(enum){
     Bool: bool,
@@ -104,8 +88,16 @@ pub const ScopeVariable = struct {
 
 pub const ModuleFunction = struct {
     name: [*:0]const u8,
-    scope: ArrayList(ScopeVariable),
+    //scope: ArrayList(ScopeVariable),
     instructions: ArrayList(SimplifiedInstruction),
+
+    pub fn deinit(
+        self: *ModuleFunction,
+        allocator: Allocator
+    ) void {
+        allocator.free(std.mem.span(self.name));
+        for (instructions.items)
+    }
 };
 
 
@@ -132,54 +124,42 @@ pub const Module = struct {
     }
 };
 
+/// A union of enumerations that emulates
+/// the instruction set for the Wayob virtual
+/// machine.
 pub const SimplifiedInstruction = union(enum){
-    Add: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    Subtract: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    Divide: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    Multiply: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    Modulo: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    CompareEq: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    CompareNeq: struct {
-        left: NeneValue,
-        right: NeneValue,
-    }, 
-    CompareLarger: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
-    CompareSmaller: struct {
-        left: NeneValue,
-        right: NeneValue,
-    },
+    Add: void,
+    Divide: void,
+    Modulo: void,
+    Subtract: void,
+    Multiply: void,
+    Push: NeneValue,
+    CompareEq: void,
+    CompareNeq: void,
     Return: NeneValue,
+    CompareLarger: void,
+    CompareSmaller: void,
 };
 
+/// A structure to compile
+/// an AST obtained from
+/// Nene source code into
+/// a set of functions each 
+/// containing a set of 
+/// simplified bytecode
+/// instructions.
 pub const Compiler = struct {
     cursor: u64,
     allocator: Allocator,
-    tree_nodes: ArrayList(BlockStatement),
+    tree_nodes: *ArrayList(BlockStatement),
 
+    /// A function to create a new 
+    /// instance of the `Compiler` 
+    /// structure and return the
+    /// created instance.
     pub fn init(
         allocator: Allocator,
-        tree_nodes: *const ArrayList(BlockStatement)
+        tree_nodes: *ArrayList(BlockStatement)
     ) Compiler {
         return Compiler {
             .cursor = 0,
@@ -188,17 +168,26 @@ pub const Compiler = struct {
         };
     }
 
+    /// A function to check if 
+    /// the end of the internal
+    /// stream of block statements
+    /// has been reached or not.
     pub fn isDone(
         self: *Compiler
     ) bool {
         return self.cursor == self.tree_nodes.items.len;
     }
 
+    /// A function to advance
+    /// the internal cursor keeping
+    /// track of the current block-level
+    /// statement by one.
     pub fn advance(
         self: *Compiler
     ) void {
         self.cursor = self.cursor + 1;
     }
+
 
     pub fn compile(
         self: *Compiler
@@ -274,11 +263,116 @@ pub const Compiler = struct {
         function: *BlockStatement
     ) !ModuleFunction {
         if (function == .Function){
+            const fn_name: [*:0]const u8 = cloneSlice(
+                function.name,
+                self.allocator
+            ) catch return NeneErr.AllocErr;
+            errdefer self.allocator.free(std.mem.span(fn_name));
+            var instructions: ArrayList(SimplifiedInstruction) = .empty;
+            errdefer {
+                for (instructions.items) |item| {
+                    item.deinit(self.allocator);
+                }
+                instructions.deinit(self.allocator);
+            }
+            for (function.body.items) |item| {
+                instructions.append(
+                    self.allocator,
+                    (try self.compileExpression(&item))
+                ) catch return NeneErr.WriteErr;
+            }
         }
         else {
             return NeneErr.WrongNodeErr;
         }
-
     }
 
+    pub fn compileExpression(
+        self: *Compiler,
+        expr: *Expression
+    ) !SimplifiedInstruction {
+        switch (expr.*){
+            .CaseBlock => return try self.compileCaseBlock(expr),
+            .FunctionCall => return try self.compileFunctionCall(expr),
+            .BinaryOperation => return try self.compileBinaryOperation(expr),
+            else => return SimplifiedInstruction{
+                .Push = try self.literalToValue(expr)
+            }, 
+        }
+    }
+
+    pub fn literalToValue(
+        self: *Compiler,
+        literal: *Expression
+    ) !NeneValue {
+        switch (literal.*) {
+            .BoolLiteral => return try self.compileBoolLiteral(literal),
+            .NumberLiteral => return try self.compileFloatLiteral(literal),
+            .StringLiteral => return try self.compileStringLiteral(literal), 
+            .FloatLiteral => return try self.compileIntegerLiteral(literal), 
+            else => return NeneErr.WrongNodeErr
+        }
+    }
+
+    pub fn compileStringLiteral(
+        self: *Compiler,
+        literal: *Expression
+    ) !NeneValue {
+        if (literal == .StringLiteral){
+            const cloned: [*:0]const u8 = cloneSlice(
+                literal.StringLiteral,
+                self.allocator
+            ) catch return NeneErr.AllocErr;
+            errdefer self.allocator.free(std.mem.span(cloned));
+            return NeneValue{ .StringLiteral = cloned };
+        }
+        else {
+            return NeneErr.WrongNodeErr;
+        }
+    }
+
+    pub fn compileBoolLiteral(
+        self: *Compiler,
+        literal: *Expression
+    ) !NeneValue {
+        if (literal == .BoolLitera){
+            return NeneValue{ .Bool = literal.BoolLiteral };
+        }
+        else {
+            return NeneErr.WrongNodeErr;
+        }
+    }
+
+    pub fn compileIntegerLiteral(
+        self: *Compiler,
+        literal: *Expression
+    ) !NeneValue {
+        if (literal == .NumberLiteral){
+            return NeneValue{ .Integer = literal.NumberLiteral };
+        }
+        else {
+            return NeneErr.WrongNodeErr;
+        }
+    }
+
+    pub fn compileFloatLiteral(
+        self: *Compiler,
+        literal: *Expression
+    ) !NeneValue {
+        if (literal == .FloatLiteral){
+            return NeneValue{ .Float = literal.FloatLiteral };
+        }
+        else {
+            return NeneErr.WrongNodeErr;
+        }
+    }
+
+    pub fn compileBinaryOperation(
+        self: *Compiler,
+        expr: *Expression
+    ) !SimplifiedInstruction {
+        const left: SimplifiedInstruction = try self.compileExpression(expr.left);
+        const right: SimplifiedInstruction = try self.compileExpression(expr.right);
+
+    }
 };

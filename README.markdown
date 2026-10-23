@@ -21,8 +21,8 @@ A specification for the Nene programming language can be found [here](https://al
 - [x] Tests.
 - [x] Lexer.
 - [x] Parser.
+- [ ] IR-Generator.
 - [ ] Compiler.
-- [ ] Optimizer.
 - [ ] Documentation.
 
 ## NOTE

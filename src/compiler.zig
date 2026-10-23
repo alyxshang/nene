@@ -402,9 +402,48 @@ pub const Compiler = struct {
     pub fn compileBinaryOperation(
         self: *Compiler,
         expr: *Expression
-    ) !SimplifiedInstruction {
-        const left: SimplifiedInstruction = try self.compileExpression(expr.left);
-        const right: SimplifiedInstruction = try self.compileExpression(expr.right);
+    ) !ArrayList(SimplifiedInstruction) {
+        if (expr == .BinaryOperation){
+
+            const left: SimplifiedInstruction = try self.compileExpression(expr.left);
+            errdefer left.deinit(self.allocator);
+            const right: SimplifiedInstruction = try self.compileExpression(expr.right);
+            errdefer right.deinit(self.allocator);
+            const instruction: SimplifiedInstruction = switch (expr.operator) {
+                .Plus => .Add,
+                .Divide => .Divide,
+                .Minus => .Subtract,
+                .Times => .Multiply,
+                .Equal => .CompareEq,
+                .NotEqual => .CompareNeq,
+                .Larger => .CompareLarger,
+                .Smaller => .CompareSmaller,
+            };
+            errdefer instruction.deinit(self.allocator);
+            var result: ArrayList(SimplifiedInstruction) = .empty;
+            errdefer {
+                for (result.items) |*item| {
+                    item.deinit(self.allocator);
+                }
+                result.deinit(self.allocator);
+            }
+            result.append(
+                self.allocator,
+                left
+            ) catch return NeneErr.WriteErr;
+            result.append(
+                self.allocator,
+                right
+            ) catch return NeneErr.WriteErr;
+            result.append(
+                self.allocator,
+                instruction
+            ) catch return NeneErr.WriteErr;
+            return result;
+        }
+        else {
+            return NeneErr.WrongNodeErr;
+        }
 
     }
 };

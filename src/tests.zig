@@ -85,8 +85,28 @@ test "Testing the structure containing Nene's parser." {
         \\inspo "factorial" from "fact.nene"
         \\
         \\funky factorial(int prod, int num) =
+        \\  45.6
+        \\  34
+        \\  true
+        \\  false
+        \\  "hello"
+        \\  x
+        \\  print("hello")
+        \\  glam "hello" from "std-print" with ("hello")
+        \\  (x = y)
+        \\  vibe (y = z)
+        \\      true -> "y is equal to z"
+        \\      false -> "z is not equal to y"
+        \\  fin
         \\fin
     ;
+    //\\  34
+    //    \\  true
+    //    \\  false
+    //    \\  print("Hello")
+    //    \\  (x == y)
+    //    \\  x
+
     var lexer: Lexer = Lexer.init(
         std.testing.allocator,
         source

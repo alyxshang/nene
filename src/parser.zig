@@ -62,11 +62,17 @@ pub const Operator = enum(u8){
     NotEqual,
 };
 
+/// A structure to encapsulate all
+/// relevant information for a
+/// binary expression.
 pub const BinaryExpression = struct {
     operator: Operator,
     left: *Expression,
     right: *Expression,
 
+    /// A function to drop all
+    /// heap-allocated resources
+    /// this structure has.
     pub fn deinit(
         self: *BinaryExpression,
         allocator: Allocator
@@ -75,6 +81,32 @@ pub const BinaryExpression = struct {
         allocator.destroy(self.left);
         self.right.*.deinit(allocator);
         allocator.destroy(self.right);
+    }
+};
+
+/// A structure to encapsulate all
+/// relevant information for calling
+/// on a symbol from a third-party
+/// library via FFI.
+pub const ExternCall = struct {
+    symbol: [*:0]const u8,
+    source: [*:0]const u8,
+    arguments: *ArrayList(Expression),
+
+    /// A function to drop all
+    /// heap-allocated resources
+    /// this structure has.
+    pub fn deinit(
+        self: *ExternCall,
+        allocator: Allocator
+    ) void {
+        allocator.free(std.mem.span(self.symbol));
+        allocator.free(std.mem.span(self.source));
+        for (self.arguments.items) |*item| {
+            item.deinit(allocator);
+        }
+        self.arguments.*.deinit(allocator);
+        allocator.destroy(self.arguments);
     }
 };
 
@@ -220,13 +252,14 @@ pub const BlockStatement = union(enum){
 /// inside a block-level statement inside
 /// the AST.
 pub const Expression = union(enum) {
-    FloatLiteral: f64,
-    BoolLiteral: bool,
-    NumberLiteral: i64,
+    FloatLiteral: f64, // done.
+    BoolLiteral: bool, // done.
+    NumberLiteral: i64, // done.
     CaseBlock: CaseBlock,
-    VarAccess: [*:0]const u8, 
-    FunctionCall: FunctionCall,  
-    StringLiteral: [*:0]const u8,
+    ExternCall: ExternCall, // done.
+    VarAccess: [*:0]const u8, // done. 
+    FunctionCall: FunctionCall, // done. 
+    StringLiteral: [*:0]const u8, // done.
     BinaryOperation: BinaryExpression,
 
     /// A function to drop all
@@ -238,10 +271,12 @@ pub const Expression = union(enum) {
         allocator: Allocator
     ) void {
         switch (self.*){
+            .VarAccess => |v| allocator.free(std.mem.span(v)),
+            .ExternCall => |*e| @constCast(e).deinit(allocator),
             .CaseBlock => |*cb| @constCast(cb).deinit(allocator),
+            .StringLiteral => |s| allocator.free(std.mem.span(s)), 
             .FunctionCall => |*fc| @constCast(fc).deinit(allocator),
-            .BinaryOperation => |*bo| @constCast(bo).deinit(allocator), 
-            .StringLiteral => |s| allocator.free(std.mem.span(s)),
+            .BinaryOperation => |*bo| @constCast(bo).deinit(allocator),  
             else => {}
         }
     }
@@ -495,8 +530,47 @@ pub const Parser = struct {
             self.err_pos = type_name_token.start;
             return NeneErr.NoValueErr;
         }
+    }
 
-
+    /// A function to parse arguments to a function.
+    /// If the operation succeeds, an instance of the
+    /// `ArrayList` structure is returned, containaining
+    /// instances of the `Expression` structure.
+    pub fn parseFunctionArguments(
+        self: *Parser
+    ) !ArrayList(Expression) {
+        var expressions: ArrayList(Expression) = .empty;
+        errdefer {
+            for (expressions.items) |*item| {
+                item.deinit(self.allocator);
+            }
+            expressions.deinit(self.allocator);
+        }
+        _ = try self.expect(.OpenBracket);
+        while (self.cursor < self.token_stream.items.len){
+            const peeked: Token = try self.peekN(0); 
+            if (self.isDone()){
+                return NeneErr.UnexpectedEndOfTokenStreamErr;
+            }
+            else if (peeked.token_type == .CloseBracket){
+                self.advance();
+                break;
+            }
+            else {
+                const argument: Expression = try self.parseExpression();
+                expressions.append(
+                    self.allocator,
+                    argument
+                ) catch {
+                    self.err_pos = self.token_stream.items[self.cursor].start;
+                    return NeneErr.WriteErr;
+                };
+                if ((try self.peekN(0)).token_type != .CloseBracket) {
+                    _ = try self.expect(.Comma);
+                } 
+            }
+        }
+        return expressions;
     }
 
     /// A function to parse a function definition as a
@@ -550,9 +624,11 @@ pub const Parser = struct {
             expressions.deinit(self.allocator);
         }
         while ((try self.peekN(0)).token_type != .FinKeyword){
+            var expr: Expression = try self.parseExpression();
+            errdefer expr.deinit(self.allocator);
             expressions.append(
                 self.allocator,
-                (try self.parseExpression())
+                expr
             ) catch {
                 self.err_pos = self.token_stream.items[self.cursor].start;
                 return NeneErr.WriteErr;
@@ -608,6 +684,7 @@ pub const Parser = struct {
             .Float => try self.parseFloatLiteral(), 
             .Number => try self.parseIntegerLiteral(),
             .VibeKeyword => try self.parseCaseBlock(),
+            .GlamKeyword => try self.parseExternCall(),
             .TrueKeyword => try self.parseBoolLiteral(),
             .FalseKeyword => try self.parseBoolLiteral(), 
             .UserString => try self.parseStringLiteral(), 
@@ -617,6 +694,68 @@ pub const Parser = struct {
                 return NeneErr.UnexpectedTokenErr;
             }
         };
+    }
+
+    /// A function to parse a literal expression
+    /// for an extern call. If the operation is successful,
+    /// the `ExternCall` variant of the `Expression` 
+    /// union of enumerations is returned. If the 
+    /// operation fails, an error is returned.
+    pub fn parseExternCall(
+        self: *Parser
+    ) NeneErr!Expression {
+        _ = try self.expect(.GlamKeyword);
+        const symbol_token: Token = try self.expect(.UserString);
+        _ = try self.expect(.FromKeyword);
+        const source_token: Token = try self.expect(.UserString);
+        _ = try self.expect(.WithKeyword);
+        if (symbol_token.value) |s| {
+            if (source_token.value) |so| {
+                const symbol: [*:0]const u8 = cloneSlice(
+                    s,
+                    self.allocator
+                ) catch {
+                    self.err_pos = symbol_token.start;
+                    return NeneErr.AllocErr;
+                };
+                errdefer self.allocator.free(std.mem.span(symbol));
+                const source: [*:0]const u8 = cloneSlice(
+                    so,
+                    self.allocator
+                ) catch {
+                    self.err_pos = source_token.start;
+                    return NeneErr.AllocErr;
+                };
+                errdefer self.allocator.free(std.mem.span(source));
+                var expressions: ArrayList(Expression) = try self.parseFunctionArguments();
+                errdefer {
+                    for (expressions.items) |*item| {
+                        item.deinit(self.allocator);
+                    }
+                    expressions.deinit(self.allocator);
+                }
+                const arg_ptr = self.allocator.create(ArrayList(Expression)) catch {
+                    self.err_pos = self.token_stream.items[self.cursor].start;
+                    return NeneErr.AllocErr;
+                };
+                arg_ptr.* = expressions;
+                errdefer self.allocator.destroy(arg_ptr);
+                const extern_call: ExternCall = ExternCall{
+                    .symbol = symbol,
+                    .source = source,
+                    .arguments = arg_ptr
+                };
+                return Expression{ .ExternCall = extern_call };
+            }
+            else {
+                self.err_pos = symbol_token.start;
+                return NeneErr.NoValueErr;
+            }
+        }
+        else {
+            self.err_pos = source_token.start;
+            return NeneErr.NoValueErr;
+        }
     }
 
     /// A function to parse a literal expression
@@ -673,9 +812,11 @@ pub const Parser = struct {
     ) NeneErr!Expression {
         const peeked: Token = try self.peekN(0);
         if (peeked.token_type == .TrueKeyword){
+            _ = try self.expect(.TrueKeyword);
             return Expression{ .BoolLiteral = true };
         }
         else if (peeked.token_type == .FalseKeyword){
+            _ = try self.expect(.FalseKeyword);
             return Expression{ .BoolLiteral = false };
         }
         else {
@@ -772,26 +913,12 @@ pub const Parser = struct {
         self: *Parser
     ) NeneErr!Expression {
         const fn_name: Token = try self.expect(.Ident);
-        _ = try self.expect(.OpenBracket);
-        var expressions: ArrayList(Expression) = .empty;
+        var expressions: ArrayList(Expression) = try self.parseFunctionArguments();
         errdefer {
             for (expressions.items) |*item| {
                 item.deinit(self.allocator);
             }
             expressions.deinit(self.allocator);
-        }
-        while ((try self.peekN(0)).token_type != .CloseBracket){
-            const peeked: Token = try self.peekN(1);
-            if (peeked.token_type != .CloseBracket){
-                _ = try self.expect(.Comma);
-            }
-            expressions.append(
-                self.allocator,
-                (try self.parseExpression())
-            ) catch {
-                self.err_pos = self.token_stream.items[self.cursor].start;
-                return NeneErr.UnexpectedTokenErr;
-            };
         }
         if (fn_name.value) |val| {
             const name: [*:0]const u8 = cloneSlice(
@@ -833,8 +960,9 @@ pub const Parser = struct {
             self.err_pos = self.token_stream.items[self.cursor].start;
             return NeneErr.AllocErr;
         };
-        left.* = try self.parseExpression();
         errdefer self.allocator.destroy(left);
+        left.* = try self.parseExpression();
+        errdefer left.*.deinit(self.allocator);
         const peeked: Token = try self.peekN(0);
         const operator: Operator = switch (peeked.token_type){
             .Equal => .Equal,
@@ -850,12 +978,14 @@ pub const Parser = struct {
                 return NeneErr.UnexpectedTokenErr;
             }
         };
+        self.advance();
         const right = self.allocator.create(Expression) catch {
             self.err_pos = self.token_stream.items[self.cursor].start;
             return NeneErr.AllocErr;
         };
-        right.* = try self.parseExpression();
         errdefer self.allocator.destroy(right);
+        right.* = try self.parseExpression();
+        errdefer right.*.deinit(self.allocator);
         _ = try self.expect(.CloseBracket);
         const bin_expr: BinaryExpression = BinaryExpression{
             .left = left,

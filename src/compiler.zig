@@ -33,12 +33,19 @@ const Expression = @import("parser.zig").Expression;
 // Nene source code.
 const BlockStatement = @import("parser.zig").BlockStatement;
 
+/// A union of enumerations to list
+/// all possible data types that a 
+/// value in Nene source code can
+/// take on.
 pub const NeneValue = union(enum){
     Bool: bool,
     Float: f64,
     Integer: i64,
     String: [*:0]const u8,
 
+    /// A function to drop any
+    /// heap-allocated resources
+    /// this union may have.
     pub fn deinit(
         self: *NeneValue,
         allocator: Allocator
@@ -50,10 +57,16 @@ pub const NeneValue = union(enum){
     }
 };
 
+/// A structure to encapsulate data
+/// about a Nene module.
 pub const ModuleImport = struct {
     entity: [*:0]const u8,
     location: [*:0]const u8,
 
+    /// A function to create a new
+    /// instance of the `ModuleImport`
+    /// structure and return the
+    /// created instance.
     pub fn init(
         entity: [*:0]const u8,
         location: [*:0]const u8,
@@ -64,6 +77,9 @@ pub const ModuleImport = struct {
         };
     }
 
+    /// A function to drop any
+    /// heap-allocated resources
+    /// this structure may have.
     pub fn deinit(
         self: *ModuleImport,
         allocator: Allocator
@@ -73,38 +89,36 @@ pub const ModuleImport = struct {
     }
 };
 
-pub const ScopeVariable = struct {
-    name: [*:0]const u8,
-    value: NeneValue,
-
-    pub fn deinit(
-        self: *ModuleImport,
-        allocator: Allocator
-    ) void {
-        allocator.free(std.mem.span(self.name));
-        self.value(allocator);
-    }
-};
-
+/// A structure to encapsulate data
+/// about a function in a Nene module.
 pub const ModuleFunction = struct {
     name: [*:0]const u8,
-    //scope: ArrayList(ScopeVariable),
     instructions: ArrayList(SimplifiedInstruction),
 
+    /// A function to drop any
+    /// heap-allocated resources
+    /// this structure may have.
     pub fn deinit(
         self: *ModuleFunction,
         allocator: Allocator
     ) void {
         allocator.free(std.mem.span(self.name));
-        for (instructions.items)
+        for (self.instructions.items) |*item| {
+            item.deinit(allocator);
+        }
+        self.instructions.deinit(allocator);
     }
 };
 
-
+/// A structure to encapsulate data
+/// about a Nene module.
 pub const Module = struct {
     imports: ?ArrayList(ModuleImport),
     functions: ?ArrayList(ModuleFunction),
 
+    /// A function to drop any
+    /// heap-allocated resources
+    /// this structure may have.
     pub fn deinit(
         self: *Module,
         allocator: Allocator
@@ -139,6 +153,19 @@ pub const SimplifiedInstruction = union(enum){
     Return: NeneValue,
     CompareLarger: void,
     CompareSmaller: void,
+
+    /// A function to drop any
+    /// heap-allocated resources
+    /// this union may have.
+    pub fn deinit(
+        self: *SimplifiedInstruction,
+        allocator: Allocator
+    ) void {
+        switch (self.*){
+            .Push => |n| n.deinit(allocator),
+            else => {}
+        }
+    }
 };
 
 /// A structure to compile
@@ -188,7 +215,11 @@ pub const Compiler = struct {
         self.cursor = self.cursor + 1;
     }
 
-
+    /// A function to compile a set
+    /// of block-level AST nodes obtained
+    /// from a Nene module into a flat
+    /// set of simplified instructions
+    /// for the Wayob virtual machine.
     pub fn compile(
         self: *Compiler
     ) !Module {
@@ -366,6 +397,7 @@ pub const Compiler = struct {
             return NeneErr.WrongNodeErr;
         }
     }
+
 
     pub fn compileBinaryOperation(
         self: *Compiler,

@@ -1,0 +1,17 @@
+.{
+    .name = .nene,
+    .version = "0.1.0",
+    .fingerprint = 0x7207851967459550,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .metztli = .{
+            .url = "git+https://github.com/alyxshang/metztli.git?ref=v.0.2.0#6bf81e12a713b1f6c0955dfee90ec5795cf1f0be",
+            .hash = "metztli-0.2.0-rdZiJ3fUAABoCijIoKGIym72cCtfxigUv0NXGHnoPJSf",
+        },
+        .wayob = .{
+            .url = "git+https://github.com/alyxshang/wayob.git?ref=v.0.2.0#25b94eed16220fcb5e9a78a66cca21d1e9036769",
+            .hash = "wayob-0.2.0-upPlVzH2AACLiEBdRd1JvT_Jx5w9bjtGFk7uR7DeiFOu",
+        },
+    },
+    .paths = .{ "src", "LICENSE", "build.zig", "build.zig.zon", "README.markdown" },
+}

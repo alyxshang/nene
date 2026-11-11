@@ -1,0 +1,7 @@
+# General.
+.DS_Store
+
+# Library.
+/zig-out
+/zig-pkg
+/.zig-cache
